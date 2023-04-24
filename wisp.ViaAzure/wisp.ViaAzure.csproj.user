@@ -4,6 +4,9 @@
     <Compile Update="Forms\AzureSpeachServiceConfigForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="Forms\OutputFileListForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -40,7 +40,6 @@ public partial class MainForm : Form
     /// <summary></summary>
     private async void OnShown(object source, EventArgs e)
     {
-        //new SpeechConfig().
         try
         {
             _supportedLanguages = (await wisp.IO.Json.ReadAsync<IEnumerable<wisp.Net.TextToSpeechLanguage>>(
@@ -87,6 +86,15 @@ public partial class MainForm : Form
                     buttons: MessageBoxButtons.OK);
 
             Close();
+        }
+    }
+
+    /// <summary></summary>
+    private void OnFileOutputMenuClick(object source, EventArgs e)
+    {
+        using(var dlg = new Forms.OutputFileListForm())
+        {
+            dlg.ShowDialog(this);
         }
     }
 
@@ -153,8 +161,11 @@ public partial class MainForm : Form
             return;
         }
 
-        var language = languageSelector.SelectedItem as string;
+        var languageIndex = languageSelector.SelectedIndex;
         var voiceType = voiceTypeSelector.SelectedItem as string;
+        var language = languageIndex >= 0 && _supportedLanguages != null && _supportedLanguages.Length > languageIndex
+            ? _supportedLanguages[languageIndex].Locale
+            : null;
 
         if(language == null || voiceType == null)
         {
@@ -174,9 +185,13 @@ public partial class MainForm : Form
 #endif
 
         speechConfig.SpeechSynthesisLanguage = language;
-        speechConfig.SpeechRecognitionLanguage = voiceType;
+        speechConfig.SpeechSynthesisVoiceName = voiceType;
 
-        using(var audioConfig = AudioConfig.FromWavFileOutput(fileName: $"{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.wav"))
+        var path = Path.Combine(
+                Program.AppWavDirectoryPath,
+                $"{language}_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.wav");
+
+        using(var audioConfig = AudioConfig.FromWavFileOutput(fileName: path))
         using(var synthesizer = new SpeechSynthesizer(speechConfig, audioConfig))
         {
             try
@@ -185,10 +200,33 @@ public partial class MainForm : Form
 
                 await Task.Delay(10);
 
-                var result = await synthesizer.SpeakTextAsync(speechText.Text);
-#if DEBUG
-                Debug.WriteLine($"Reason: {result.Reason}");
-#endif
+                using(var result = await synthesizer.SpeakTextAsync(speechText.Text))
+                {
+                    switch(result.Reason)
+                    {
+                        case ResultReason.SynthesizingAudioCompleted:
+                            MessageBox.Show(
+                                    caption: "成功",
+                                    text: $"\"{path}\" へ出力を行いました.",
+                                    icon: MessageBoxIcon.Information,
+                                    buttons: MessageBoxButtons.OK);
+                            break;
+
+                        case ResultReason.Canceled:
+                            var cancellation = SpeechSynthesisCancellationDetails.FromResult(result: result);
+                            if(cancellation.Reason == CancellationReason.Error)
+                            {
+                                MessageBox.Show(
+                                        caption: "エラー",
+                                        text: $"音声ファイルへの変換に失敗.\n{cancellation.ErrorCode} {cancellation.ErrorDetails}",
+                                        icon: MessageBoxIcon.Error,
+                                        buttons: MessageBoxButtons.OK);
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
             catch(Exception ex)
             {

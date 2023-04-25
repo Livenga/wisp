@@ -41,6 +41,8 @@ internal static class Program
     /// <summary></summary>
     private static async Task InitAsync(CancellationToken cancellationToken = default(CancellationToken))
     {
+        Directory.SetCurrentDirectory(path: Directory.GetParent(Assembly.GetExecutingAssembly().Location)?.FullName ?? throw new NullReferenceException());
+
         _appDirectoryPath = TryCreateDirectory(
                 Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
